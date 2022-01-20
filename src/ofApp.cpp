@@ -1,7 +1,16 @@
 #include "ofApp.h"
+
+bool isDebug = true;
+glm::vec3 camera = glm::vec3(0, 5, 10);
+glm::vec3 screenCenter = glm::vec3(0, 5, 10);
+glm::vec3 lightSource = glm::vec3(5, 15, 0);
+float cameraMultiplier = 0.02f;
+float cameraToScreenDist = 0.8f;
+
+
 // Intersect Ray with Plane  (wrapper on glm::intersect*
 //
-bool Plane::intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal) {
+bool Plane::intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) {
 	float dist;
 	bool hit = glm::intersectRayPlane(ray.p, ray.d, position, this->normal, dist);
 	//std::cout << "Plane::intersect" << std::endl;
@@ -12,7 +21,7 @@ bool Plane::intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal) {
 
 	//custom ray plane intersection
 	float aDotB = glm::dot(ray.d, this->normal);
-	float cosTheta = aDotB/(glm::l2Norm(ray.d) * glm::l2Norm(this->normal));
+	float cosTheta = aDotB / (glm::l2Norm(ray.d) * glm::l2Norm(this->normal));
 	//std::cout << "intersecting - " << cosTheta << std::endl;
 	//if () 
 	return hit;
@@ -41,12 +50,12 @@ Ray RenderCam::getRay(float u, float v) {
 
 
 //--------------------------------------------------------------
-void ofApp::setup(){
+void ofApp::setup() {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::update(){
+void ofApp::update() {
 
 }
 
@@ -54,7 +63,7 @@ std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
 	//Plane* floor = new Plane(glm::vec3(0, -5, 0), glm::vec3(0, 1, 0));
 	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1));
-	Sphere* sphere = new Sphere(glm::vec3(0,5,0),3.0f);
+	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 3.0f);
 	//Ray ray(glm::vec3(4, 3, 2), glm::vec3(4, 3, 2));
 	//floor.intersect(ray, glm::vec3(4, 3, 2), glm::vec3(4, 3, 2));
 	//scene.push_back(floor);
@@ -63,40 +72,35 @@ std::vector<SceneObject*> generateScene() {
 }
 
 float lightMultiplier(glm::vec3 position, glm::vec3 lightSource, glm::vec3 normal) {
-	return glm::dot(normal, lightSource - position) / (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
+	//return glm::dot(normal, lightSource - position) / (glm::l2Norm(normal), glm::l2Norm(lightSource - position));
+	return glm::dot(glm::normalize(normal), glm::normalize(lightSource-position));// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
 }
 
 void drawScene() {
 	//ofDrawRectangle(64, 64, 64, 64);
-	bool isDebug = true;
-	glm::vec3 camera = glm::vec3(0, 5, 10);
-	glm::vec3 screenCenter = glm::vec3(0, 5, 10);
-	glm::vec3 lightSource = glm::vec3(0,15,0);
 	int width = ofGetWindowWidth() - 2;
 	int height = ofGetWindowHeight() - 2;
-	float cameraMultiplier = 0.02f;
-	float cameraToScreenDist = 0.8f;
 
 
 	std::vector<SceneObject*> scene = generateScene();
 	glm::vec3 screenOffset = glm::vec3();
 	ofImage img;
 	img.allocate(ofGetWindowWidth(), ofGetWindowHeight(), OF_IMAGE_COLOR);
-	std::cout << ofGetWindowWidth()<<", "<< ofGetWindowHeight() << "\n";
+	//std::cout << ofGetWindowWidth() << ", " << ofGetWindowHeight() << "\n";
 	//ofPixels& pixels = img.getPixels();
 	img.setColor(ofColor::black);
 	glm::vec3 intersectionPoint;
 	glm::vec3 normalDirection;
 	ofstream myfile;
-	if(isDebug)	myfile.open("C:\\Users\\Deepak\\OneDrive\\Desktop\\a.txt");
+	if (isDebug)	myfile.open("C:\\Users\\Deepak\\OneDrive\\Desktop\\a.txt");
 	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 6.0f);
+	Sphere* sphere = new Sphere(glm::vec3(0, 5, 3), 6.0f);
 	//myfile << "Writing this to a file.\n";
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
 		for (float w = -width / 2.0f; w < width / 2.0f; w++) {
 			glm::vec3 pixelPos = glm::vec3(w * cameraMultiplier, h * cameraMultiplier, -cameraToScreenDist) + camera;
 			glm::vec3 rayDirection = pixelPos - camera;
-			Ray ray(camera, glm::normalize( rayDirection));
+			Ray ray(camera, glm::normalize(rayDirection));
 			//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
 			bool setColor = false;
 			glm::vec3 minIntersectionPoint = glm::vec3(99999, 99999, 99999);
@@ -105,36 +109,51 @@ void drawScene() {
 			//for (int objNo = 0; objNo < scene.size(); objNo++) {
 				//if (scene[objNo]->shape == PlaneShape) {
 					//std::cout << "plane\n";
-					if (floor->intersect(ray, intersectionPoint, normalDirection) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
-						if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
-							minIntersectionPoint = intersectionPoint;
-							minNormalDirection = normalDirection;
-							//if (isDebug) myfile << (int)(w + width / 2.0f)<<", "<< height - (int)(h + height / 2.0f) << "\n";
-							//std::cout << (int)(w + width / 2.0f) << ", " << height - (int)(h + height / 2.0f) << std::endl;
-							img.setColor((int)(w + width / 2.0f), height-(int)(h + height / 2.0f), floor->diffuseColor);
-							objectNo = 0;
-							setColor = true;
-						}
+			if (floor->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
+				if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
+					minIntersectionPoint = intersectionPoint;
+					minNormalDirection = normalDirection;
+					//if (isDebug) myfile << (int)(w + width / 2.0f)<<", "<< height - (int)(h + height / 2.0f) << "\n";
+					//std::cout << (int)(w + width / 2.0f) << ", " << height - (int)(h + height / 2.0f) << std::endl;
+
+					float shadedColor = lightMultiplier(intersectionPoint, lightSource, floor->normal);
+					ofColor c = floor->diffuseColor;
+					c.r *= shadedColor;
+					c.g *= shadedColor;
+					c.b *= shadedColor;
+					Ray ray1(intersectionPoint, lightSource-intersectionPoint);
+					if (sphere->intersect(ray, intersectionPoint, normalDirection, false)) {
+						c.r *= 0;
+						c.g *= 0;
+						c.b *= 0;
 					}
-				//}
-				//if (sphere->shape == SphereShape) {
-					if (sphere->intersect(ray, intersectionPoint, normalDirection) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
-						if (isDebug) myfile << glm::l2Norm(minIntersectionPoint, camera) << ", " << glm::l2Norm(camera, intersectionPoint) << "\n";
-						if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
-							minIntersectionPoint = intersectionPoint;
-							minNormalDirection = normalDirection;
-							if (isDebug) myfile << (int)(w + width / 2.0f) << ", " << height - (int)(h + height / 2.0f) << "\n";
-							ofColor c = sphere->diffuseColor;
-							//float shadedColor = lightMultiplier(intersectionPoint, lightSource, normalDirection);
-							//c.r*=
-							img.setColor((int)(w + width / 2.0f), height-(int)(h + height / 2.0f), sphere->diffuseColor);
-							objectNo = 1;
-							setColor = true;
-						}
-					}
-				//}
-				//if (isDebug) myfile << "[" << "abc" << "] " << glm::l2Norm(camera, intersectionPoint) << "\n";
+
+					img.setColor((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), c);
+					objectNo = 0;
+					setColor = true;
+				}
+			}
 			//}
+			//if (sphere->shape == SphereShape) {
+			if (sphere->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
+				if (isDebug) myfile << glm::l2Norm(minIntersectionPoint, camera) << ", " << glm::l2Norm(camera, intersectionPoint) << "\n";
+				if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
+					minIntersectionPoint = intersectionPoint;
+					minNormalDirection = normalDirection;
+					if (isDebug) myfile << (int)(w + width / 2.0f) << ", " << height - (int)(h + height / 2.0f) << "\n";
+					ofColor c = sphere->diffuseColor;
+					float shadedColor = lightMultiplier(intersectionPoint, lightSource, normalDirection);
+					c.r *= shadedColor;
+					c.g *= shadedColor;
+					c.b *= shadedColor;
+					img.setColor((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), c);
+					objectNo = 1;
+					setColor = true;
+				}
+			}
+			//}
+			//if (isDebug) myfile << "[" << "abc" << "] " << glm::l2Norm(camera, intersectionPoint) << "\n";
+		//}
 			if (setColor) {
 				//if (isDebug) myfile << "[" << "abc" << "] " << "intersectionPoint- " << intersectionPoint <<" "<< glm::l2Norm(camera, intersectionPoint)<< "\n";
 			}
@@ -153,8 +172,8 @@ void drawbox() {
 	img.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
 	//img.getPixels().setColor(x, y, ofColor(r, g, b, a));//place your pixels
 	img.update();
-	for(int y =0; y < 200; y++){
-		for(int x =0; x < 200; x++){
+	for (int y = 0; y < 200; y++) {
+		for (int x = 0; x < 200; x++) {
 			img.getPixels().setColor(x, y, ofColor::yellow);
 		}
 	}
@@ -163,62 +182,108 @@ void drawbox() {
 }
 
 //--------------------------------------------------------------
-void ofApp::draw(){
+void ofApp::draw() {
 	drawScene();
 	//drawbox();
 }
 
 //--------------------------------------------------------------
-void ofApp::keyPressed(int key){
+void ofApp::keyPressed(int key) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::keyReleased(int key){
+void ofApp::keyReleased(int key) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseMoved(int x, int y ){
+void ofApp::mouseMoved(int x, int y) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
+void ofApp::mouseDragged(int x, int y, int button) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button){
+void ofApp::mousePressed(int x, int y, int button) {
+	int width = ofGetWindowWidth() - 2;
+	int height = ofGetWindowHeight() - 2;
+
+	int w = x - width / 2.0f;
+	int h = height / 2.0f - y;
+
+	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 6.0f);
+	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+
+	glm::vec3 pixelPos = glm::vec3(w * cameraMultiplier, h * cameraMultiplier, -cameraToScreenDist) + camera;
+	glm::vec3 rayDirection = pixelPos - camera;
+	glm::vec3 intersectionPoint;
+	glm::vec3 normalDirection;
+	Ray ray(camera, glm::normalize(rayDirection));
+	std::cout << "\n[Debug] " << w << ", " << h << "\n";
+	if (sphere->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
+		ofColor c = sphere->diffuseColor;
+		float shadedColor = lightMultiplier(intersectionPoint, lightSource, normalDirection);
+		c.r *= shadedColor;
+		c.g *= shadedColor;
+		c.b *= shadedColor;
+		std::cout << "[Debug] shaded color-"<<shadedColor<< "\n";
+		std::cout << "[Debug] intersectionPoint- " << intersectionPoint << ", normalDirection- " << normalDirection << "\n";
+
+	}
+
+	if (floor->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
+		ofColor c = sphere->diffuseColor;
+		float shadedColor = lightMultiplier(intersectionPoint, lightSource, floor->normal);
+		c.r *= shadedColor;
+		c.g *= shadedColor;
+		c.b *= shadedColor;
+		std::cout << "[Debug plane] shaded color-" << shadedColor << "\n";
+		std::cout << "[Debug plane] intersectionPoint- " << intersectionPoint << ", normalDirection- " << floor->normal << "\n";
+
+		Ray ray1(intersectionPoint, lightSource - intersectionPoint);
+		std::cout << "[Debug plane] ray to light-  dirn-" << ray1.d << ", start- " << intersectionPoint << "\n";
+		if (sphere->intersect(ray, intersectionPoint, normalDirection, true)) {
+			std::cout << "[Debug plane] after intersection- " << intersectionPoint << ", normalDirection- " << floor->normal << "\n";
+			c.r *= 0;
+			c.g *= 0;
+			c.b *= 0;
+		}
+
+
+
+	}
+}
+
+//--------------------------------------------------------------
+void ofApp::mouseReleased(int x, int y, int button) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button){
+void ofApp::mouseEntered(int x, int y) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseEntered(int x, int y){
+void ofApp::mouseExited(int x, int y) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseExited(int x, int y){
+void ofApp::windowResized(int w, int h) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::windowResized(int w, int h){
+void ofApp::gotMessage(ofMessage msg) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::gotMessage(ofMessage msg){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
+void ofApp::dragEvent(ofDragInfo dragInfo) {
 
 }

@@ -25,7 +25,7 @@
 
 #include "ofMain.h"
 #include <glm/gtx/intersect.hpp>
-enum Shape{SphereShape, PlaneShape};
+enum Shape { SphereShape, PlaneShape };
 //  General Purpose Ray class 
 //
 class Ray {
@@ -45,8 +45,9 @@ public:
 class SceneObject {
 public:
 	virtual void draw() {}    // pure virtual funcs - must be overloaded
-	virtual bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal) { //cout << "SceneObject::intersect" << endl; 
-		return false; }
+	virtual bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return false;
+	}
 
 	// any data common to all scene objects goes here
 	glm::vec3 position = glm::vec3(0, 0, 0);
@@ -63,7 +64,7 @@ class Sphere : public SceneObject {
 public:
 	Sphere(glm::vec3 p, float r, ofColor diffuse = ofColor::lightGray) { position = p; radius = r; diffuseColor = diffuse; shape = SphereShape; }
 	Sphere() {}
-	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal) {
+	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) {
 		//glm::intersectRaySphere(ray.p, ray.d, position, radius, point, normal);
 		//std::cout << "Sphere::intersect "<<ray.p<<" "<<ray.d<<" | "<< position<<" "<<radius<<" "<<point << std::endl;
 		glm::vec3 oc = ray.p - position;
@@ -72,6 +73,9 @@ public:
 		float c = glm::dot(oc, oc) - radius * radius;
 		float discriminant = b * b - 4 * a * c;
 		float dist = (-b - sqrt(discriminant)) / (2.0 * a);
+		if (debug) {
+			std::cout << "[sphere::intersect] a- "<< a <<", discriminant- " << discriminant << ", dist- " << dist << "\n";
+		}
 		if (discriminant < 0) {
 			//return -1.0;
 		}
@@ -80,6 +84,11 @@ public:
 			point.x = intersectionPoint.x;
 			point.y = intersectionPoint.y;
 			point.z = intersectionPoint.z;
+
+			glm::vec3 norm = intersectionPoint - position;
+			normal.x = norm.x;
+			normal.y = norm.y;
+			normal.z = norm.z;
 			//return (-b - sqrt(discriminant)) / (2.0 * a);
 		}
 		return (discriminant > 0);
@@ -95,7 +104,7 @@ public:
 //  Mesh class (will complete later- this will be a refinement of Mesh from Project 1)
 //
 class Mesh : public SceneObject {
-	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal) { return false; }
+	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) { return false; }
 	void draw() { }
 };
 
@@ -111,11 +120,11 @@ public:
 		diffuseColor = diffuse;
 		plane.rotateDeg(90, 1, 0, 0);
 		shape = PlaneShape;
-		std::cout << "plane init\n";
+		//std::cout << "plane init\n";
 	}
 	Plane() { }
 	glm::vec3 normal = glm::vec3(0, 1, 0);
-	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal);
+	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug);
 	void draw() {
 		plane.setPosition(position);
 		plane.setWidth(width);
