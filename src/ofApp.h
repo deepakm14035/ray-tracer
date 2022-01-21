@@ -65,16 +65,18 @@ public:
 	Sphere(glm::vec3 p, float r, ofColor diffuse = ofColor::lightGray) { position = p; radius = r; diffuseColor = diffuse; shape = SphereShape; }
 	Sphere() {}
 	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) {
-		//glm::intersectRaySphere(ray.p, ray.d, position, radius, point, normal);
-		//std::cout << "Sphere::intersect "<<ray.p<<" "<<ray.d<<" | "<< position<<" "<<radius<<" "<<point << std::endl;
-		glm::vec3 oc = ray.p - position;
+		bool result = glm::intersectRaySphere(ray.p, ray.d, position, radius, point, normal);
+		if (debug)
+			std::cout << "[Sphere::intersect] "<<ray.p<<" "<<ray.d<<" | sphere center- "<< position<<" radius- "<<radius<<", intersection at- "<<point<<", normal- "<< normal<<", result- "<< result << std::endl;
+		/*glm::vec3 oc = ray.p - position;
 		float a = glm::dot(ray.d, ray.d);
 		float b = 2.0 * glm::dot(oc, ray.d);
 		float c = glm::dot(oc, oc) - radius * radius;
-		float discriminant = b * b - 4 * a * c;
+		float discriminant = b * b - (4 * a * c);
 		float dist = (-b - sqrt(discriminant)) / (2.0 * a);
+		
 		if (debug) {
-			std::cout << "[sphere::intersect] a- "<< a <<", discriminant- " << discriminant << ", dist- " << dist << "\n";
+			std::cout << "[sphere::intersect] a- "<< a << ", b- " << b << ", c- " << c <<", discriminant- " << discriminant << ", dist- " << dist << "\n";
 		}
 		if (discriminant < 0) {
 			//return -1.0;
@@ -90,9 +92,9 @@ public:
 			normal.y = norm.y;
 			normal.z = norm.z;
 			//return (-b - sqrt(discriminant)) / (2.0 * a);
-		}
-		return (discriminant > 0);
-		//return (glm::intersectRaySphere(ray.p, ray.d, position, radius, point, normal));
+		}*/
+		//return (discriminant >= 0);
+		return result;
 	}
 	void draw() {
 		ofDrawSphere(position, radius);

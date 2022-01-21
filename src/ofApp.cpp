@@ -1,9 +1,9 @@
 #include "ofApp.h"
 
 bool isDebug = true;
-glm::vec3 camera = glm::vec3(0, 5, 10);
+glm::vec3 camera = glm::vec3(0, 5, 5);
 glm::vec3 screenCenter = glm::vec3(0, 5, 10);
-glm::vec3 lightSource = glm::vec3(5, 15, 0);
+glm::vec3 lightSource = glm::vec3(5, 15, 10);
 float cameraMultiplier = 0.02f;
 float cameraToScreenDist = 0.8f;
 
@@ -20,8 +20,8 @@ bool Plane::intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool 
 	}
 
 	//custom ray plane intersection
-	float aDotB = glm::dot(ray.d, this->normal);
-	float cosTheta = aDotB / (glm::l2Norm(ray.d) * glm::l2Norm(this->normal));
+	//float aDotB = glm::dot(ray.d, this->normal);
+	//float cosTheta = aDotB / (glm::l2Norm(ray.d) * glm::l2Norm(this->normal));
 	//std::cout << "intersecting - " << cosTheta << std::endl;
 	//if () 
 	return hit;
@@ -73,7 +73,7 @@ std::vector<SceneObject*> generateScene() {
 
 float lightMultiplier(glm::vec3 position, glm::vec3 lightSource, glm::vec3 normal) {
 	//return glm::dot(normal, lightSource - position) / (glm::l2Norm(normal), glm::l2Norm(lightSource - position));
-	return glm::dot(glm::normalize(normal), glm::normalize(lightSource-position));// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
+	return  glm::clamp( glm::dot(glm::normalize(normal), glm::normalize(lightSource-position)), 0.0f, 1.0f);// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
 }
 
 void drawScene() {
@@ -94,7 +94,7 @@ void drawScene() {
 	ofstream myfile;
 	if (isDebug)	myfile.open("C:\\Users\\Deepak\\OneDrive\\Desktop\\a.txt");
 	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere = new Sphere(glm::vec3(0, 5, 3), 6.0f);
+	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 4.0f);
 	//myfile << "Writing this to a file.\n";
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
 		for (float w = -width / 2.0f; w < width / 2.0f; w++) {
@@ -121,8 +121,8 @@ void drawScene() {
 					c.r *= shadedColor;
 					c.g *= shadedColor;
 					c.b *= shadedColor;
-					Ray ray1(intersectionPoint, lightSource-intersectionPoint);
-					if (sphere->intersect(ray, intersectionPoint, normalDirection, false)) {
+					Ray ray1(intersectionPoint, glm::normalize(lightSource - intersectionPoint));
+					if (sphere->intersect(ray1, intersectionPoint, glm::normalize(normalDirection), false)) {
 						c.r *= 0;
 						c.g *= 0;
 						c.b *= 0;
@@ -215,7 +215,7 @@ void ofApp::mousePressed(int x, int y, int button) {
 	int w = x - width / 2.0f;
 	int h = height / 2.0f - y;
 
-	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 6.0f);
+	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 4.0f);
 	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 	glm::vec3 pixelPos = glm::vec3(w * cameraMultiplier, h * cameraMultiplier, -cameraToScreenDist) + camera;
@@ -230,8 +230,8 @@ void ofApp::mousePressed(int x, int y, int button) {
 		c.r *= shadedColor;
 		c.g *= shadedColor;
 		c.b *= shadedColor;
-		std::cout << "[Debug] shaded color-"<<shadedColor<< "\n";
-		std::cout << "[Debug] intersectionPoint- " << intersectionPoint << ", normalDirection- " << normalDirection << "\n";
+		std::cout << "[Debug] shaded color-"<<shadedColor<<", color-"<<c << "\n";
+		std::cout << "[Debug] light vector- " << glm::normalize(lightSource-intersectionPoint) << ", normalDirection- " << glm::normalize(normalDirection) << "\n";
 
 	}
 
@@ -244,9 +244,9 @@ void ofApp::mousePressed(int x, int y, int button) {
 		std::cout << "[Debug plane] shaded color-" << shadedColor << "\n";
 		std::cout << "[Debug plane] intersectionPoint- " << intersectionPoint << ", normalDirection- " << floor->normal << "\n";
 
-		Ray ray1(intersectionPoint, lightSource - intersectionPoint);
-		std::cout << "[Debug plane] ray to light-  dirn-" << ray1.d << ", start- " << intersectionPoint << "\n";
-		if (sphere->intersect(ray, intersectionPoint, normalDirection, true)) {
+		Ray ray1(intersectionPoint, glm::normalize( lightSource - intersectionPoint));
+		std::cout << "[Debug plane] ray to light-  start-" << ray1.p << ", dir- " << ray1.d<< "\n";
+		if (sphere->intersect(ray1, intersectionPoint, normalDirection, true)) {
 			std::cout << "[Debug plane] after intersection- " << intersectionPoint << ", normalDirection- " << floor->normal << "\n";
 			c.r *= 0;
 			c.g *= 0;
