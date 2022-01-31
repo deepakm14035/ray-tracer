@@ -1,12 +1,28 @@
 #include "ofApp.h"
 
 bool isDebug = false;
-glm::vec3 camera = glm::vec3(0, 5, 5);
-glm::vec3 screenCenter = glm::vec3(0, 5, 10);
-glm::vec3 lightSource = glm::vec3(5, 12, 8);
-float cameraMultiplier = 0.02f;
-float cameraToScreenDist = 0.8f;
+glm::vec3 camera = glm::vec3(0, 8, 20);
+std::vector<glm::vec3> lightSource = { glm::vec3(-8, 18, 0) , glm::vec3(8, 18, 0) };
 
+float viewportWidth = 2.0f;
+float viewportHeight = 2.0f;
+
+glm::vec3 cameraMultiplier = { 0.02f, 0.02f, 1.0f };
+float cameraToScreenDist = 1.5f;
+bool renderImage = false;
+
+std::vector<SceneObject*> generateScene() {
+	std::vector<SceneObject*> scene;
+	Plane* floor	= new Plane	(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	Sphere* sphere	= new Sphere(glm::vec3(0, 5, 0), 2.0f);
+	Sphere* sphere1 = new Sphere(glm::vec3(0, 5, -10), 4.0f, ofColor::blueViolet);
+	Sphere* sphere2 = new Sphere(glm::vec3(0, 5, -20), 6.0f, ofColor::fireBrick);
+	scene.push_back(floor);
+	scene.push_back(sphere);
+	scene.push_back(sphere1);
+	scene.push_back(sphere2);
+	return scene;
+}
 
 // Intersect Ray with Plane  (wrapper on glm::intersect*
 //
@@ -62,18 +78,28 @@ void ofApp::update() {
 
 }
 
-std::vector<SceneObject*> generateScene() {
-	std::vector<SceneObject*> scene;
-	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 4.0f);
-	scene.push_back(floor);
-	scene.push_back(sphere);
-	return scene;
-}
 
 float lightMultiplier(glm::vec3 position, glm::vec3 lightSource, glm::vec3 normal) {
 	//return glm::dot(normal, lightSource - position) / (glm::l2Norm(normal), glm::l2Norm(lightSource - position));
 	return  glm::clamp( glm::dot(glm::normalize(normal), glm::normalize(lightSource-position)), 0.0f, 1.0f);// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
+}
+
+float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo) {
+	float result = 0.0f;
+	glm::vec3 intersectionPoint1;
+	for (int i = 0; i < lightSource.size(); i++) {
+		float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);
+		Ray ray1(intersectionPoint, glm::normalize(lightSource[i] - intersectionPoint));
+		for (int objNo1 = 0; objNo1 < scene.size(); objNo1++) {
+			if (objNo1 != objNo && scene[objNo1]->intersect(ray1, intersectionPoint1, glm::normalize(normalDirection), false)) {
+				value = 0.0f;
+				break;
+			}
+		}
+		result += value;
+	}
+	
+	return glm::clamp( result, 0.0f, 1.0f);
 }
 
 void drawScene() {
@@ -93,19 +119,20 @@ void drawScene() {
 	glm::vec3 normalDirection;
 	ofstream myfile;
 	if (isDebug)	myfile.open("C:\\Users\\Deepak\\OneDrive\\Desktop\\a.txt");
-	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 4.0f);
+
 	//myfile << "Writing this to a file.\n";
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
 		for (float w = -width / 2.0f; w < width / 2.0f; w++) {
-			glm::vec3 pixelPos = glm::vec3(w * cameraMultiplier, h * cameraMultiplier, -cameraToScreenDist) + camera;
+			float u = w / width;
+			float v = h / height;
+			glm::vec3 pixelPos = glm::vec3(u * viewportWidth, v * viewportHeight, -cameraToScreenDist) + camera;
 			glm::vec3 rayDirection = pixelPos - camera;
 			Ray ray(camera, glm::normalize(rayDirection));
 			//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
 			bool setColor = false;
 			glm::vec3 minIntersectionPoint = glm::vec3(99999, 99999, 99999);
 			glm::vec3 minNormalDirection = glm::vec3(99999, 99999, 99999);
-			int objectNo = 0;
+			int minObjectNo = -1;
 			for (int objNo = 0; objNo < scene.size(); objNo++) {
 				if (scene[objNo]->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
 					if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
@@ -114,31 +141,22 @@ void drawScene() {
 						//if (isDebug) myfile << (int)(w + width / 2.0f)<<", "<< height - (int)(h + height / 2.0f) << "\n";
 						//std::cout << (int)(w + width / 2.0f) << ", " << height - (int)(h + height / 2.0f) << std::endl;
 
-						float shadedColor = lightMultiplier(intersectionPoint, lightSource, normalDirection);
-						ofColor c = scene[objNo]->diffuseColor;
-						c.r *= shadedColor;
-						c.g *= shadedColor;
-						c.b *= shadedColor;
-						Ray ray1(intersectionPoint, glm::normalize(lightSource - intersectionPoint));
-						for (int objNo1 = 0; objNo1 < scene.size(); objNo1++) {
-							if (objNo1!=objNo && scene[objNo1]->intersect(ray1, intersectionPoint, glm::normalize(normalDirection), false)) {
-								c.r *= 0;
-								c.g *= 0;
-								c.b *= 0;
-							}
-						}
-						img.setColor((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), c);
-						objectNo = 0;
+						minObjectNo = objNo;
 						setColor = true;
 					}
 				}
 			}
-			//if (isDebug) myfile << "[" << "abc" << "] " << glm::l2Norm(camera, intersectionPoint) << "\n";
-		//}
-			if (setColor) {
-				//if (isDebug) myfile << "[" << "abc" << "] " << "intersectionPoint- " << intersectionPoint <<" "<< glm::l2Norm(camera, intersectionPoint)<< "\n";
+
+			if (minObjectNo != -1) {
+				scene[minObjectNo]->intersect(ray, intersectionPoint, normalDirection, false);
+				float shadedColor = handleLighting(intersectionPoint, scene, normalDirection, minObjectNo);
+				ofColor c = scene[minObjectNo]->diffuseColor;
+				c.r *= shadedColor;
+				c.g *= shadedColor;
+				c.b *= shadedColor;
+
+				img.setColor((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), c);
 			}
-			//std::cout << objectNo;
 		}
 		//std::cout << endl;
 	}
@@ -164,7 +182,11 @@ void drawbox() {
 
 //--------------------------------------------------------------
 void ofApp::draw() {
-	drawScene();
+	if (renderImage) {
+		drawScene();
+		ofSetBackgroundAuto(false);
+		renderImage = false;
+	}
 	//drawbox();
 }
 
@@ -190,16 +212,19 @@ void ofApp::mouseDragged(int x, int y, int button) {
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
+	renderImage = true;
+	//drawScene();
+
 	int width = ofGetWindowWidth() - 2;
 	int height = ofGetWindowHeight() - 2;
 
 	int w = x - width / 2.0f;
 	int h = height / 2.0f - y;
 
-	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 4.0f);
+	Sphere* sphere = new Sphere(glm::vec3(0, 5, 0), 5.0f);
 	Plane* floor = new Plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
-	glm::vec3 pixelPos = glm::vec3(w * cameraMultiplier, h * cameraMultiplier, -cameraToScreenDist) + camera;
+	glm::vec3 pixelPos = glm::vec3(w * cameraMultiplier.x, h * cameraMultiplier.y, -cameraToScreenDist) + camera;
 	glm::vec3 rayDirection = pixelPos - camera;
 	glm::vec3 intersectionPoint;
 	glm::vec3 normalDirection;
@@ -207,25 +232,25 @@ void ofApp::mousePressed(int x, int y, int button) {
 	std::cout << "\n[Debug] " << w << ", " << h << "\n";
 	if (sphere->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
 		ofColor c = sphere->diffuseColor;
-		float shadedColor = lightMultiplier(intersectionPoint, lightSource, normalDirection);
+		float shadedColor = lightMultiplier(intersectionPoint, lightSource[0], normalDirection);
 		c.r *= shadedColor;
 		c.g *= shadedColor;
 		c.b *= shadedColor;
 		std::cout << "[Debug] shaded color-"<<shadedColor<<", color-"<<c << "\n";
-		std::cout << "[Debug] light vector- " << glm::normalize(lightSource-intersectionPoint) << ", normalDirection- " << glm::normalize(normalDirection) << "\n";
+		std::cout << "[Debug] light vector- " << glm::normalize(lightSource[0] -intersectionPoint) << ", normalDirection- " << glm::normalize(normalDirection) << "\n";
 
 	}
 
 	if (floor->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
 		ofColor c = sphere->diffuseColor;
-		float shadedColor = lightMultiplier(intersectionPoint, lightSource, floor->normal);
+		float shadedColor = lightMultiplier(intersectionPoint, lightSource[0], floor->normal);
 		c.r *= shadedColor;
 		c.g *= shadedColor;
 		c.b *= shadedColor;
 		std::cout << "[Debug plane] shaded color-" << shadedColor << "\n";
 		std::cout << "[Debug plane] intersectionPoint- " << intersectionPoint << ", normalDirection- " << floor->normal << "\n";
 
-		Ray ray1(intersectionPoint, glm::normalize( lightSource - intersectionPoint));
+		Ray ray1(intersectionPoint, glm::normalize( lightSource[0] - intersectionPoint));
 		std::cout << "[Debug plane] ray to light-  start-" << ray1.p << ", dir- " << ray1.d<< "\n";
 		if (sphere->intersect(ray1, intersectionPoint, normalDirection, true)) {
 			std::cout << "[Debug plane] after intersection- " << intersectionPoint << ", normalDirection- " << floor->normal << "\n";
