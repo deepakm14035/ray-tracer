@@ -25,7 +25,7 @@
 
 #include "ofMain.h"
 #include <glm/gtx/intersect.hpp>
-enum Shape { SphereShape, PlaneShape };
+enum Shape { SphereShape, PlaneShape, TorusShape };
 //  General Purpose Ray class 
 //
 class Ray {
@@ -48,7 +48,12 @@ public:
 	virtual bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) { //cout << "SceneObject::intersect" << endl; 
 		return false;
 	}
-
+	virtual float sdf(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return 0;
+	}
+	virtual glm::vec3 getNormal(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return glm::vec3();
+	}
 	// any data common to all scene objects goes here
 	glm::vec3 position = glm::vec3(0, 0, 0);
 	Shape shape;
@@ -56,6 +61,9 @@ public:
 	//
 	ofColor diffuseColor = ofColor::grey;    // default colors - can be changed.
 	ofColor specularColor = ofColor::lightGray;
+	glm::vec3 rotation;
+	glm::mat4 rotationMatrix;
+	glm::mat4 inverseRotationMatrix;
 };
 
 //  General purpose sphere  (assume parametric)
@@ -69,6 +77,12 @@ public:
 		if (debug)
 			std::cout << "[Sphere::intersect] "<<ray.p<<" "<<ray.d<<" | sphere center- "<< position<<" radius- "<<radius<<", intersection at- "<<point<<", normal- "<< normal<<", result- "<< result << std::endl;
 		return result;
+	}
+	float sdf(glm::vec3& point, bool debug) {
+		return glm::length(point-position)-radius;
+	}
+	glm::vec3 getNormal(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return point-position;
 	}
 	void draw() {
 		ofDrawSphere(position, radius);
@@ -101,6 +115,14 @@ public:
 	Plane() { }
 	glm::vec3 normal = glm::vec3(0, 1, 0);
 	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug);
+	
+	float sdf(glm::vec3& point, bool debug) {
+		return point.y - position.y;
+	}
+	
+	glm::vec3 getNormal(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return normal;
+	}
 	void draw() {
 		plane.setPosition(position);
 		plane.setWidth(width);
@@ -159,6 +181,52 @@ public:
 	//  coordinate system.
 	//
 	glm::vec2 min, max;
+};
+
+class Torus : public SceneObject {
+public:
+	Torus(glm::vec3 p, float r, float r2, ofColor diffuse = ofColor::lightGray) { position = p; radius = r; radius2 = r2; diffuseColor = diffuse; shape = TorusShape; }
+	Torus() {}
+
+	void setRotation(glm::vec3 rot) {
+		rotation = rot;
+		inverseRotationMatrix =		glm::rotate(glm::mat4(1.0f),		-rotation.z,	glm::vec3(0, 0, 1));
+		inverseRotationMatrix *=	glm::rotate(inverseRotationMatrix,	-rotation.y,	glm::vec3(0, 1, 0));
+		inverseRotationMatrix *=	glm::rotate(inverseRotationMatrix,	-rotation.x,	glm::vec3(1, 0, 0));
+		rotationMatrix = glm::rotate(glm::mat4(1.0f), rotation.x, glm::vec3(1, 0, 0));
+		rotationMatrix *= glm::rotate(rotationMatrix, rotation.y, glm::vec3(0, 1, 0));
+		rotationMatrix *= glm::rotate(rotationMatrix, rotation.z, glm::vec3(0, 0, 1));
+	}
+
+	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) {
+		//glm::vec2 q = glm::vec2(glm::length(p.xz) - t.x, p.y);
+		return false;// length(q) - t.y;
+	}
+	
+	float sdf(glm::vec3& point, bool debug) {
+		//do inverse transform on point
+		point -= position;
+		point = inverseRotationMatrix * glm::vec4(point,1.0f);
+		//point = rot * point;
+		//find distance between 'point' and radius, then check if it is within radius1 distance
+		glm::vec2 q = glm::vec2(glm::length(glm::vec2(point.x, point.z)) - radius, point.y);
+
+		point = rotationMatrix * glm::vec4(point, 1.0f);
+		//point = rot * point;
+		point += position;
+		return glm::length(q) - radius2;
+	}
+	
+	glm::vec3 getNormal(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return point - position;
+	}
+	
+	void draw() {
+		//ofDrawTorus(position, radius);
+	}
+
+	float radius = 2.0;
+	float radius2 = 1.0;
 };
 
 
