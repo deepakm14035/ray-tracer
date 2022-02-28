@@ -2,7 +2,7 @@
 
 bool isDebug = false;
 glm::vec3 camera = glm::vec3(0, 8, 20);
-std::vector<glm::vec3> lightSource = { glm::vec3(-8, 18, 0) , glm::vec3(8, 18, 0) };
+std::vector<glm::vec3> lightSource = { glm::vec3(-10, 24, 0) , glm::vec3(10, 24, 0) };
 
 float viewportWidth = 2.0f;
 float viewportHeight = 2.0f;
@@ -17,19 +17,22 @@ float DIST_THRESHOLD = 0.01f;
 std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
 	Plane* floor	= new Plane	(glm::vec3(0, -5, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere	= new Sphere(glm::vec3(0, 7, -10), 4.5f);
+	Sphere* sphere	= new Sphere(glm::vec3(0, 5.5f, -10), 4.0f);
 	//Sphere* sphere1 = new Sphere(glm::vec3(0, 5, -10), 4.0f, ofColor::blueViolet);
 	//Sphere* sphere2 = new Sphere(glm::vec3(0, 5, -20), 6.0f, ofColor::fireBrick);
 	Torus* torus1 = new Torus(glm::vec3(-10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
 	Torus* torus2 = new Torus(glm::vec3(10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
+	Box* box1 = new Box(glm::vec3(0, 12, -10), glm::vec3(4.0f, 3.0f, 3.0f), ofColor::blueViolet);
 	torus1->setRotation(glm::vec3(0, 0, -15.0f));
 	torus2->setRotation(glm::vec3(0, 0, 15.0f));
+	box1->setRotation(glm::vec3(45.0f, 45.0f, 0.0f));
 	scene.push_back(floor);
 	scene.push_back(sphere);
 	//scene.push_back(sphere1);
 	//scene.push_back(sphere2);
 	scene.push_back(torus1);
 	scene.push_back(torus2);
+	scene.push_back(box1);
 	return scene;
 }
 
