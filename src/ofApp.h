@@ -205,15 +205,16 @@ public:
 	
 	float sdf(glm::vec3& point, bool debug) {
 		//do inverse transform on point
-		point -= position;
-		point = inverseRotationMatrix * glm::vec4(point,1.0f);
+		glm::vec3 temp(point);
+		temp -= position;
+		temp = inverseRotationMatrix * glm::vec4(temp,1.0f);
 		//point = rot * point;
 		//find distance between 'point' and radius, then check if it is within radius1 distance
-		glm::vec2 q = glm::vec2(glm::length(glm::vec2(point.x, point.z)) - radius, point.y);
+		glm::vec2 q = glm::vec2(glm::length(glm::vec2(temp.x, temp.z)) - radius, temp.y);
 
-		point = rotationMatrix * glm::vec4(point, 1.0f);
+		//point = rotationMatrix * glm::vec4(point, 1.0f);
 		//point = rot * point;
-		point += position;
+		//point += position;
 		return glm::length(q) - radius2;
 	}
 	

@@ -17,18 +17,19 @@ float DIST_THRESHOLD = 0.01f;
 std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
 	Plane* floor	= new Plane	(glm::vec3(0, -5, 0), glm::vec3(0, 1, 0));
-	//Sphere* sphere	= new Sphere(glm::vec3(0, 5, 0), 2.0f);
+	Sphere* sphere	= new Sphere(glm::vec3(0, 7, -10), 4.5f);
 	//Sphere* sphere1 = new Sphere(glm::vec3(0, 5, -10), 4.0f, ofColor::blueViolet);
 	//Sphere* sphere2 = new Sphere(glm::vec3(0, 5, -20), 6.0f, ofColor::fireBrick);
-	Torus* torus1 = new Torus(glm::vec3(-8, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
-	Torus* torus2 = new Torus(glm::vec3(8, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
-	torus1->setRotation(glm::vec3(0, 0, 30*3.1428f / 180.0f));
+	Torus* torus1 = new Torus(glm::vec3(-10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
+	Torus* torus2 = new Torus(glm::vec3(10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
+	torus1->setRotation(glm::vec3(0, 0, -15.0f));
+	torus2->setRotation(glm::vec3(0, 0, 15.0f));
 	scene.push_back(floor);
-	//scene.push_back(sphere);
+	scene.push_back(sphere);
 	//scene.push_back(sphere1);
 	//scene.push_back(sphere2);
 	scene.push_back(torus1);
-	//scene.push_back(torus2);
+	scene.push_back(torus2);
 	return scene;
 }
 
@@ -86,6 +87,9 @@ void ofApp::update() {
 
 }
 
+glm::vec3 getReflectedRay(glm::vec3 viewRay, glm::vec3 normal) {
+	return 2 * normal * glm::dot(-viewRay, normal) - viewRay;
+}
 
 float lightMultiplier(glm::vec3 position, glm::vec3 lightSource, glm::vec3 normal) {
 	//return glm::dot(normal, lightSource - position) / (glm::l2Norm(normal), glm::l2Norm(lightSource - position));
@@ -115,7 +119,7 @@ float handleLighting1(glm::vec3 intersectionPoint, std::vector<SceneObject*> sce
 	float result = 0.0f;
 	
 	for (int i = 0; i < lightSource.size(); i++) {
-		float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);
+		float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);// +glm::dot(getReflectedRay(lightSource - position, normal), );
 		Ray ray1(intersectionPoint, glm::normalize(lightSource[i] - intersectionPoint));
 		int iterations = 0;
 		glm::vec3 intersectionPoint1;
@@ -137,7 +141,7 @@ float handleLighting1(glm::vec3 intersectionPoint, std::vector<SceneObject*> sce
 			result += value;
 	}
 
-	return glm::clamp(result, 0.0f, 1.0f);
+	return result;// glm::clamp(result, 0.0f, 1.0f);
 }
 
 void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPosition, ofImage& img) {
@@ -204,9 +208,9 @@ void rayMarching(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositi
 		//scene[minObjectNo]->intersect(ray, intersectionPoint, normalDirection, false);
 		float shadedColor = handleLighting1(*nextStep, scene, scene[*minObjectNo]->getNormal(*nextStep, false), *minObjectNo);
 		ofColor c = scene[*minObjectNo]->diffuseColor;
-		c.r *= shadedColor;
-		c.g *= shadedColor;
-		c.b *= shadedColor;
+		c.r = glm::clamp(shadedColor* c.r,0.0f,255.0f);
+		c.g = glm::clamp(shadedColor * c.g, 0.0f, 255.0f);
+		c.b = glm::clamp(shadedColor * c.b, 0.0f, 255.0f);
 
 		img.setColor(pixelPosition.x, pixelPosition.y, c);
 	}
@@ -233,9 +237,9 @@ void drawScene() {
 	//myfile << "Writing this to a file.\n";
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
 		for (float w = -width / 2.0f; w < width / 2.0f; w++) {
-			float u = w / width;
+			float u = w / height;
 			float v = h / height;
-			glm::vec3 pixelPos = glm::vec3(u * viewportWidth, v * viewportHeight, -cameraToScreenDist) + camera;
+			glm::vec3 pixelPos = glm::vec3(u * viewportHeight, v * viewportHeight, -cameraToScreenDist) + camera;
 			glm::vec3 rayDirection = pixelPos - camera;
 			Ray ray(camera, glm::normalize(rayDirection));
 			//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
