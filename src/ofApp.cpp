@@ -13,6 +13,7 @@ bool renderImage = false;
 
 int MAX_RAY_STEPS = 100;
 float DIST_THRESHOLD = 0.01f;
+int mouseClickCount = 0;
 
 std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
@@ -51,7 +52,8 @@ std::vector<SceneObject*> generateScene() {
 	torus1->setRotation(glm::vec3(0, 0, -15.0f));
 	torus2->setRotation(glm::vec3(0, 0, 15.0f));
 	box1->setRotation(glm::vec3(45.0f, 45.0f, 0.0f));
-	//scene.push_back(floor);
+	Mesh* mesh = new Mesh("C:\\Users\\dmuna\\Documents\\cpp\\cga\\OFTest\\mySketch\\torus.obj", glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3(3.0f, 3.0f, 3.0f));
+	scene.push_back(floor);
 	//scene.push_back(sphere);
 	//scene.push_back(sphere1);
 	//scene.push_back(sphere2);
@@ -60,10 +62,11 @@ std::vector<SceneObject*> generateScene() {
 	//scene.push_back(box1);
 	//scene.push_back(boolShape);
 	//scene.push_back(boolShape2);
-	scene.push_back(infRepObj1);
+	//scene.push_back(infRepObj1);
 	//scene.push_back(sphere2);
 	//scene.push_back(sphere3);
 	//scene.push_back(sphere4);
+	scene.push_back(mesh);
 	return scene;
 }
 
@@ -139,11 +142,12 @@ float lightMultiplier1(glm::vec3 position, glm::vec3 lightSource, glm::vec3 norm
 	return  glm::clamp(glm::clamp(-glm::pow(glm::dot(reflectedRay, glm::normalize(incidentRay)), 6.0f),0.0f,1.0f) + lightMultiplier(position, lightSource, normal), 0.0f, 1.0f);// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
 }
 
-float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo) {
+float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo, glm::vec3 incidentRay) {
 	float result = 0.0f;
 	glm::vec3 intersectionPoint1;
 	for (int i = 0; i < lightSource.size(); i++) {
-		float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);
+		//float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);
+		float value = lightMultiplier1(intersectionPoint, lightSource[i], normalDirection, incidentRay);
 		Ray ray1(intersectionPoint, glm::normalize(lightSource[i] - intersectionPoint));
 		for (int objNo1 = 0; objNo1 < scene.size(); objNo1++) {
 			if (objNo1 != objNo && scene[objNo1]->intersect(ray1, intersectionPoint1, glm::normalize(normalDirection), false)) {
@@ -154,7 +158,7 @@ float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scen
 		result += value;
 	}
 	
-	return glm::clamp( result, 0.0f, 1.0f);
+	return result;// glm::clamp(result, 0.0f, 1.0f);
 }
 
 //using raymarching
@@ -187,7 +191,7 @@ float handleLighting1(glm::vec3 intersectionPoint, std::vector<SceneObject*> sce
 	return result;// glm::clamp(result, 0.0f, 1.0f);
 }
 
-void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPosition, ofImage& img) {
+void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPosition, ofImage& img, bool debug) {
 	glm::vec3 intersectionPoint;
 	glm::vec3 normalDirection;
 	bool setColor = false;
@@ -195,7 +199,7 @@ void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositio
 	glm::vec3 minNormalDirection = glm::vec3(99999, 99999, 99999);
 	int minObjectNo = -1;
 	for (int objNo = 0; objNo < scene.size(); objNo++) {
-		if (scene[objNo]->intersect(ray, intersectionPoint, normalDirection, false) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
+		if (scene[objNo]->intersect(ray, intersectionPoint, normalDirection, debug) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
 			if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
 				minIntersectionPoint = intersectionPoint;
 				minNormalDirection = normalDirection;
@@ -210,7 +214,8 @@ void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositio
 
 	if (minObjectNo != -1) {
 		scene[minObjectNo]->intersect(ray, intersectionPoint, normalDirection, false);
-		float shadedColor = handleLighting(intersectionPoint, scene, normalDirection, minObjectNo);
+		float shadedColor = handleLighting(intersectionPoint, scene, normalDirection, minObjectNo, -ray.d);
+		//float shadedColor = handleLighting1(intersectionPoint, scene, scene[minObjectNo]->getNormal(intersectionPoint, false), minObjectNo, -ray.d);
 		ofColor c = scene[minObjectNo]->diffuseColor;
 		c.r *= shadedColor;
 		c.g *= shadedColor;
@@ -280,14 +285,15 @@ void drawScene() {
 	//myfile << "Writing this to a file.\n";
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
 		for (float w = -width / 2.0f; w < width / 2.0f; w++) {
+			//std::cout << w << ":w ";
 			float u = w / height;
 			float v = h / height;
 			glm::vec3 pixelPos = glm::vec3(u * viewportHeight, v * viewportHeight, -cameraToScreenDist) + camera;
 			glm::vec3 rayDirection = pixelPos - camera;
 			Ray ray(camera, glm::normalize(rayDirection));
 			//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
-			//rayTracing(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f),0), img);
-			rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
+			rayTracing(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f),0), img, false);
+			//rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
 		}
 		std::cout << h <<" ";
 	}
@@ -343,7 +349,17 @@ void ofApp::mouseDragged(int x, int y, int button) {
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
-	renderImage = true;
+
+	/*glm::vec3 p0(2, 0, 1), p1(2, 0, -1), p2(2, 1, 0);
+	glm::vec3 s1(0, 0, 0), s2(1, 0, 0);
+	glm::vec2 intersec;
+	float dist;
+
+	if (glm::intersectRayTriangle(s1, s2, p0, p1, p2, intersec, dist))
+		std::cout<<"Intersected on "<<intersec<<", "<< dist<<std::endl;*/
+//	if(mouseClickCount<1)
+		renderImage = true;
+	//mouseClickCount++;
 	//drawScene();
 	int width = ofGetWindowWidth() - 2;
 	int height = ofGetWindowHeight() - 2;
@@ -355,9 +371,11 @@ void ofApp::mousePressed(int x, int y, int button) {
 	ofImage img;
 	glm::vec3 pixelPos = glm::vec3(u * viewportWidth, v * viewportHeight, -cameraToScreenDist) + camera;
 	glm::vec3 rayDirection = pixelPos - camera;
+	std::cout << "\n" << camera << ", ray direction: " << rayDirection << "\n";
 	Ray ray(camera, glm::normalize(rayDirection));
-	std::cout << rayDirection<<"\n";
 	std::vector<SceneObject*> scene = generateScene();
+	rayTracing(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, true);
+	//std::vector<SceneObject*> scene = generateScene();
 	//rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, true);
 
 }
