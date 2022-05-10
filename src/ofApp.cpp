@@ -1,8 +1,8 @@
 #include "ofApp.h"
 
 bool isDebug = false;
-glm::vec3 camera = glm::vec3(0, 8, 20);
-std::vector<glm::vec3> lightSource = { glm::vec3(-10, 24, 0) , glm::vec3(10, 24, 0) };
+glm::vec3 camera = glm::vec3(0, 5, 20);
+std::vector<glm::vec3> lightSource = { glm::vec3(-15, 18, 10) , glm::vec3(15, 18, 10) };
 
 float viewportWidth = 2.0f;
 float viewportHeight = 2.0f;
@@ -16,25 +16,57 @@ float DIST_THRESHOLD = 0.01f;
 
 std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
-	Plane* floor	= new Plane	(glm::vec3(0, -5, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere	= new Sphere(glm::vec3(0, 5.5f, -10), 4.0f);
+	Plane* floor	= new Plane	(glm::vec3(0, -7, 0), glm::vec3(0, 1, 0));
+	Sphere* sphere	= new Sphere(glm::vec3(0, 4.5f, -14), 4.0f);
 	//Sphere* sphere1 = new Sphere(glm::vec3(0, 5, -10), 4.0f, ofColor::blueViolet);
 	//Sphere* sphere2 = new Sphere(glm::vec3(0, 5, -20), 6.0f, ofColor::fireBrick);
 	Torus* torus1 = new Torus(glm::vec3(-10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
 	Torus* torus2 = new Torus(glm::vec3(10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
-	Box* box1 = new Box(glm::vec3(0, 12, -10), glm::vec3(4.0f, 3.0f, 3.0f), ofColor::blueViolet);
+	Box* box1 = new Box(glm::vec3(0, 15, -15), glm::vec3(3.0f, 3.0f, 3.0f), ofColor::blueViolet);
+	SceneObject* boxBool1		=	(SceneObject*)new Box		(glm::vec3(-13, 7, -8), glm::vec3(4.0f, 4.0f, 4.0f), ofColor::blueViolet);
+	SceneObject* sphereBool1	=	(SceneObject*)new Sphere	(glm::vec3(-9, 7.0f, -8), 4.0f);
+	BooleanShape* boolShape = new BooleanShape(
+		boxBool1, Shape::BoxShape, 
+		sphereBool1, Shape::SphereShape, 
+		0, 
+		ofColor::blueViolet
+	);
+	
+	SceneObject* boxBool2		= (SceneObject*)new Box			(glm::vec3(13, 7, -8), glm::vec3(4.0f, 4.0f, 4.0f), ofColor::blueViolet);
+	SceneObject* sphereBool2	= (SceneObject*)new Sphere		(glm::vec3(9, 7.0f, -8), 4.0f);
+	BooleanShape* boolShape2 = new BooleanShape(
+		boxBool2, Shape::BoxShape,
+		sphereBool2, Shape::SphereShape,
+		0,
+		ofColor::blueViolet
+	);
+	Sphere* sphere2 = new Sphere(glm::vec3(0, 0, 0), 1.0f);
+	Sphere* sphere3 = new Sphere(glm::vec3(5, 0, 0), 1.0f);
+	Sphere* sphere4 = new Sphere(glm::vec3(-5, 0, 0), 1.0f);
+	Box* box2 = new Box(glm::vec3(0, 0, 0), glm::vec3(1.0f, 0.5f, 1.0f), ofColor::blueViolet);
+
+	SceneObject* infRepObj1 = (SceneObject*)new InfiniteRep(box2, glm::vec3(10.0f, 13.0f, 10.0f), ofColor::blueViolet);
+	box2->setRotation(glm::vec3(0.0f, 0.0f, 30.0f));
+	
 	torus1->setRotation(glm::vec3(0, 0, -15.0f));
 	torus2->setRotation(glm::vec3(0, 0, 15.0f));
 	box1->setRotation(glm::vec3(45.0f, 45.0f, 0.0f));
-	scene.push_back(floor);
-	scene.push_back(sphere);
+	//scene.push_back(floor);
+	//scene.push_back(sphere);
 	//scene.push_back(sphere1);
 	//scene.push_back(sphere2);
-	scene.push_back(torus1);
-	scene.push_back(torus2);
-	scene.push_back(box1);
+	//scene.push_back(torus1);
+	//scene.push_back(torus2);
+	//scene.push_back(box1);
+	//scene.push_back(boolShape);
+	//scene.push_back(boolShape2);
+	scene.push_back(infRepObj1);
+	//scene.push_back(sphere2);
+	//scene.push_back(sphere3);
+	//scene.push_back(sphere4);
 	return scene;
 }
+
 
 // Intersect Ray with Plane  (wrapper on glm::intersect*
 //
@@ -99,6 +131,14 @@ float lightMultiplier(glm::vec3 position, glm::vec3 lightSource, glm::vec3 norma
 	return  glm::clamp( glm::dot(glm::normalize(normal), glm::normalize(lightSource-position)), 0.0f, 1.0f);// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
 }
 
+float lightMultiplier1(glm::vec3 position, glm::vec3 lightSource, glm::vec3 normal, glm::vec3 incidentRay) {
+	//return glm::dot(normal, lightSource - position) / (glm::l2Norm(normal), glm::l2Norm(lightSource - position));
+	glm::vec3 lightRay = glm::normalize(position - lightSource);
+	normal = glm::normalize(normal);
+	glm::vec3 reflectedRay = glm::normalize(2*normal*(glm::dot(lightRay, normal))- lightRay);
+	return  glm::clamp(glm::clamp(-glm::pow(glm::dot(reflectedRay, glm::normalize(incidentRay)), 6.0f),0.0f,1.0f) + lightMultiplier(position, lightSource, normal), 0.0f, 1.0f);// (glm::l2Norm(normal), glm::l2Norm(lightSource-position));
+}
+
 float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo) {
 	float result = 0.0f;
 	glm::vec3 intersectionPoint1;
@@ -118,11 +158,11 @@ float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scen
 }
 
 //using raymarching
-float handleLighting1(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo) {
+float handleLighting1(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo, glm::vec3 incidentRay) {
 	float result = 0.0f;
 	
 	for (int i = 0; i < lightSource.size(); i++) {
-		float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);// +glm::dot(getReflectedRay(lightSource - position, normal), );
+		float value = lightMultiplier1(intersectionPoint, lightSource[i], normalDirection, incidentRay);// +glm::dot(getReflectedRay(lightSource - position, normal), );
 		Ray ray1(intersectionPoint, glm::normalize(lightSource[i] - intersectionPoint));
 		int iterations = 0;
 		glm::vec3 intersectionPoint1;
@@ -209,7 +249,7 @@ void rayMarching(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositi
 		//glm::vec3 intersectionPoint;
 		//glm::vec3 normalDirection;
 		//scene[minObjectNo]->intersect(ray, intersectionPoint, normalDirection, false);
-		float shadedColor = handleLighting1(*nextStep, scene, scene[*minObjectNo]->getNormal(*nextStep, false), *minObjectNo);
+		float shadedColor = handleLighting1(*nextStep, scene, scene[*minObjectNo]->getNormal(*nextStep, false), *minObjectNo, -ray.d);
 		ofColor c = scene[*minObjectNo]->diffuseColor;
 		c.r = glm::clamp(shadedColor* c.r,0.0f,255.0f);
 		c.g = glm::clamp(shadedColor * c.g, 0.0f, 255.0f);

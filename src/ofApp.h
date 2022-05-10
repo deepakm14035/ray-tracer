@@ -25,7 +25,7 @@
 
 #include "ofMain.h"
 #include <glm/gtx/intersect.hpp>
-enum Shape { SphereShape, PlaneShape, TorusShape, BoxShape };
+enum Shape { SphereShape, PlaneShape, TorusShape, BoxShape, InfiniteRepShape };
 //  General Purpose Ray class 
 //
 class Ray {
@@ -271,6 +271,80 @@ public:
 
 	glm::vec3 s;
 };
+
+
+class BooleanShape : public SceneObject {
+public:
+	BooleanShape(SceneObject* object1, Shape a, SceneObject* object2, Shape b, int op, ofColor diffuse = ofColor::lightGray) { A = object1; aShape = a; B = object2; bShape = b; operation = op; diffuseColor = diffuse; shape = BoxShape; }
+	BooleanShape() {}
+
+	void setRotation(glm::vec3 rot) {
+		rotation = rot;
+		inverseRotationMatrix = glm::rotate(glm::mat4(1.0f), -rotation.z, glm::vec3(0, 0, 1));
+		inverseRotationMatrix *= glm::rotate(inverseRotationMatrix, -rotation.y, glm::vec3(0, 1, 0));
+		inverseRotationMatrix *= glm::rotate(inverseRotationMatrix, -rotation.x, glm::vec3(1, 0, 0));
+		rotationMatrix = glm::rotate(glm::mat4(1.0f), rotation.x, glm::vec3(1, 0, 0));
+		rotationMatrix *= glm::rotate(rotationMatrix, rotation.y, glm::vec3(0, 1, 0));
+		rotationMatrix *= glm::rotate(rotationMatrix, rotation.z, glm::vec3(0, 0, 1));
+	}
+
+	bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug) {
+		//glm::vec2 q = glm::vec2(glm::length(p.xz) - t.x, p.y);
+		return false;// length(q) - t.y;
+	}
+
+	float sdf(glm::vec3& point, bool debug) {
+		//do inverse transform on point
+		float sdf1 = ((Box*)A)->sdf(point, debug);
+		float sdf2 = ((Sphere*)B)->sdf(point, debug);
+		//if (operation == 0)//difference
+			return glm::max(sdf1, sdf2);
+		//return glm::length(glm::max(q, 0.0f)) + glm::min(glm::max(q.x, max(q.y, q.z)), 0.0f);
+	}
+
+	glm::vec3 getNormal(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return point - position;
+	}
+
+	void draw() {
+		//ofDrawTorus(position, radius);
+	}
+
+	glm::vec3 s;
+	SceneObject* A;
+	Shape aShape;
+	SceneObject* B;
+	Shape bShape;
+	int operation;
+};
+
+class InfiniteRep : public SceneObject {
+public:
+	InfiniteRep(SceneObject* objectToRepeat, glm::vec3 gap, ofColor diffuse = ofColor::darkOliveGreen) {
+		diffuseColor = diffuse;
+		shape = InfiniteRepShape;
+		objToRepeat = objectToRepeat;
+		c = gap;
+		//std::cout << "plane init\n";
+	}
+	InfiniteRep() { }
+	glm::vec3 normal = glm::vec3(0, 1, 0);
+	//bool intersect(const Ray& ray, glm::vec3& point, glm::vec3& normal, bool debug);
+
+	float sdf(glm::vec3& point, bool debug) {
+		glm::vec3 q = glm::mod(point + 0.5 * c, c) - 0.5 * c;
+		return objToRepeat->sdf(q, false);
+	}
+
+	glm::vec3 getNormal(glm::vec3& point, bool debug) { //cout << "SceneObject::intersect" << endl; 
+		return normal;
+	}
+	void draw() {
+	}
+	glm::vec3 c;
+	SceneObject* objToRepeat;
+};
+
 
 //  render camera  - currently must be z axis aligned (we will improve this in project 4)
 //
