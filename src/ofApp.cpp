@@ -1,4 +1,8 @@
 #include "ofApp.h"
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <chrono>
 
 bool isDebug = false;
 glm::vec3 camera = glm::vec3(0, 5, 20);
@@ -14,6 +18,14 @@ bool renderImage = false;
 int MAX_RAY_STEPS = 100;
 float DIST_THRESHOLD = 0.01f;
 int mouseClickCount = 0;
+const int NUM_THREADS = 32;
+std::queue<float> work_queue;
+std::mutex mtx;
+
+int G_WIDTH;
+int G_HEIGHT;
+ofImage* G_IMG;
+std::vector<SceneObject*> G_SCENE;
 
 std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
@@ -52,7 +64,7 @@ std::vector<SceneObject*> generateScene() {
 	torus1->setRotation(glm::vec3(0, 0, -15.0f));
 	torus2->setRotation(glm::vec3(0, 0, 15.0f));
 	box1->setRotation(glm::vec3(45.0f, 45.0f, 0.0f));
-	Mesh* mesh = new Mesh("C:\\Users\\dmuna\\Documents\\cpp\\cga\\OFTest\\mySketch\\torus.obj", glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3(3.0f, 3.0f, 3.0f));
+	Mesh* mesh = new Mesh("C:\\Users\\dmuna\\Documents\\cpp\\cga\\OFTest\\mySketch\\torus1.obj", glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 	scene.push_back(floor);
 	//scene.push_back(sphere);
 	//scene.push_back(sphere1);
@@ -220,7 +232,6 @@ void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositio
 		c.r *= shadedColor;
 		c.g *= shadedColor;
 		c.b *= shadedColor;
-
 		img.setColor(pixelPosition.x, pixelPosition.y, c);
 	}
 }
@@ -264,6 +275,55 @@ void rayMarching(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositi
 	}
 }
 
+void renderRow(float h, int width, int height, std::vector<SceneObject*> scene, ofImage* img) {
+	for (float w = -width / 2.0f; w < width / 2.0f; w++) {
+		//std::cout << w << ":w ";
+		float u = w / height;
+		float v = h / height;
+		glm::vec3 pixelPos = glm::vec3(u * viewportHeight, v * viewportHeight, -cameraToScreenDist) + camera;
+		glm::vec3 rayDirection = pixelPos - camera;
+		Ray ray(camera, glm::normalize(rayDirection));
+		//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
+		rayTracing(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), *img, false);
+		//rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
+	}
+
+}
+
+void threadedFunction(/*int width, int height, std::vector<SceneObject*>* scene, ofImage* img*/) {
+	while (true) {
+		//mtx.lock();
+		//lock();
+		if (work_queue.empty()) break;
+		int h = work_queue.front();
+		work_queue.pop();
+		//unlock();
+		//mtx.unlock();
+		//renderRow(h, width, height, *scene, img);
+		renderRow(h, G_WIDTH, G_HEIGHT, G_SCENE, G_IMG);
+		std::cout << h << " ";
+	}
+}
+
+class MyThread : public ofThread {
+
+public:
+
+	void threadedFunction(/*int width, int height, std::vector<SceneObject*>* scene, ofImage* img*/) {
+		while (true) {
+			mtx.lock();
+			//lock();
+			if (work_queue.empty()) break;
+			int h = work_queue.front();
+			work_queue.pop();
+			//unlock();
+			mtx.unlock();
+			//renderRow(h, width, height, *scene, img);
+			renderRow(h, G_WIDTH, G_HEIGHT, G_SCENE, G_IMG);
+			std::cout << h << " ";
+		}
+	}
+};
 
 void drawScene() {
 	//ofDrawRectangle(64, 64, 64, 64);
@@ -284,19 +344,31 @@ void drawScene() {
 
 	//myfile << "Writing this to a file.\n";
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
-		for (float w = -width / 2.0f; w < width / 2.0f; w++) {
-			//std::cout << w << ":w ";
-			float u = w / height;
-			float v = h / height;
-			glm::vec3 pixelPos = glm::vec3(u * viewportHeight, v * viewportHeight, -cameraToScreenDist) + camera;
-			glm::vec3 rayDirection = pixelPos - camera;
-			Ray ray(camera, glm::normalize(rayDirection));
-			//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
-			rayTracing(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f),0), img, false);
-			//rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
-		}
-		std::cout << h <<" ";
+		//renderRow(h, width, height, scene, &img);
+		work_queue.push(h);
+		//std::cout << h <<" ";
 	}
+	G_HEIGHT = height;
+	G_WIDTH = width;
+	G_SCENE = scene;
+	G_IMG = &img;
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+	thread threads[NUM_THREADS];
+	for (int i = 0; i < NUM_THREADS; i++) {
+		threads[i] = thread(threadedFunction);
+		//threads[i].startThread(true);
+ 	}
+	for (int i = 0; i < NUM_THREADS; i++) {
+		threads[i].join();
+	}
+	//for (int i = 0; i < NUM_THREADS; i++) {
+		//while (threads[i].isThreadRunning()) {}
+		//threads[i].stopThread();
+	//}
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+	std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
+	std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
 	if (isDebug) myfile.close();
 	//ofSetColor(255);
 	img.update();
