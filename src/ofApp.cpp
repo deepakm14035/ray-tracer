@@ -3,6 +3,7 @@
 #include <queue>
 #include <mutex>
 #include <chrono>
+#include <omp.h>
 
 bool isDebug = false;
 glm::vec3 camera = glm::vec3(0, 5, 20);
@@ -343,24 +344,26 @@ void drawScene() {
 	if (isDebug)	myfile.open("C:\\Users\\Deepak\\OneDrive\\Desktop\\a.txt");
 
 	//myfile << "Writing this to a file.\n";
+	omp_set_num_threads(NUM_THREADS);
+	#pragma omp parallel for
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 	for (float h = -height / 2.0f; h < height / 2.0f; h++) {
-		//renderRow(h, width, height, scene, &img);
-		work_queue.push(h);
-		//std::cout << h <<" ";
+		renderRow(h, width, height, scene, &img);
+		//work_queue.push(h);
+		std::cout << h <<" ";
 	}
 	G_HEIGHT = height;
 	G_WIDTH = width;
 	G_SCENE = scene;
 	G_IMG = &img;
-	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-	thread threads[NUM_THREADS];
-	for (int i = 0; i < NUM_THREADS; i++) {
-		threads[i] = thread(threadedFunction);
+	//thread threads[NUM_THREADS];
+	//for (int i = 0; i < NUM_THREADS; i++) {
+	//	threads[i] = thread(threadedFunction);
 		//threads[i].startThread(true);
- 	}
-	for (int i = 0; i < NUM_THREADS; i++) {
-		threads[i].join();
-	}
+ 	//}
+	//for (int i = 0; i < NUM_THREADS; i++) {
+	//	threads[i].join();
+	//}
 	//for (int i = 0; i < NUM_THREADS; i++) {
 		//while (threads[i].isThreadRunning()) {}
 		//threads[i].stopThread();
