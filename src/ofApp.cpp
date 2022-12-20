@@ -4,6 +4,7 @@
 #include <mutex>
 #include <chrono>
 #include <omp.h>
+//#include <cuda_runtime.h>
 
 bool isDebug = false;
 glm::vec3 camera = glm::vec3(0, 5, 20);
@@ -19,7 +20,7 @@ bool renderImage = false;
 int MAX_RAY_STEPS = 100;
 float DIST_THRESHOLD = 0.01f;
 int mouseClickCount = 0;
-const int NUM_THREADS = 32;
+const int NUM_THREADS = 1;
 std::queue<float> work_queue;
 std::mutex mtx;
 
@@ -30,24 +31,24 @@ std::vector<SceneObject*> G_SCENE;
 
 std::vector<SceneObject*> generateScene() {
 	std::vector<SceneObject*> scene;
-	Plane* floor	= new Plane	(glm::vec3(0, -7, 0), glm::vec3(0, 1, 0));
-	Sphere* sphere	= new Sphere(glm::vec3(0, 4.5f, -14), 4.0f);
+	Plane* floor = new Plane(glm::vec3(0, -7, 0), glm::vec3(0, 1, 0));
+	Sphere* sphere = new Sphere(glm::vec3(0, 4.5f, -14), 4.0f);
 	//Sphere* sphere1 = new Sphere(glm::vec3(0, 5, -10), 4.0f, ofColor::blueViolet);
 	//Sphere* sphere2 = new Sphere(glm::vec3(0, 5, -20), 6.0f, ofColor::fireBrick);
 	Torus* torus1 = new Torus(glm::vec3(-10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
 	Torus* torus2 = new Torus(glm::vec3(10, 0, -10), 6.0f, 1.5f, ofColor::fireBrick);
 	Box* box1 = new Box(glm::vec3(0, 15, -15), glm::vec3(3.0f, 3.0f, 3.0f), ofColor::blueViolet);
-	SceneObject* boxBool1		=	(SceneObject*)new Box		(glm::vec3(-13, 7, -8), glm::vec3(4.0f, 4.0f, 4.0f), ofColor::blueViolet);
-	SceneObject* sphereBool1	=	(SceneObject*)new Sphere	(glm::vec3(-9, 7.0f, -8), 4.0f);
+	SceneObject* boxBool1 = (SceneObject*)new Box(glm::vec3(-13, 7, -8), glm::vec3(4.0f, 4.0f, 4.0f), ofColor::blueViolet);
+	SceneObject* sphereBool1 = (SceneObject*)new Sphere(glm::vec3(-9, 7.0f, -8), 4.0f);
 	BooleanShape* boolShape = new BooleanShape(
-		boxBool1, Shape::BoxShape, 
-		sphereBool1, Shape::SphereShape, 
-		0, 
+		boxBool1, Shape::BoxShape,
+		sphereBool1, Shape::SphereShape,
+		0,
 		ofColor::blueViolet
 	);
-	
-	SceneObject* boxBool2		= (SceneObject*)new Box			(glm::vec3(13, 7, -8), glm::vec3(4.0f, 4.0f, 4.0f), ofColor::blueViolet);
-	SceneObject* sphereBool2	= (SceneObject*)new Sphere		(glm::vec3(9, 7.0f, -8), 4.0f);
+
+	SceneObject* boxBool2 = (SceneObject*)new Box(glm::vec3(13, 7, -8), glm::vec3(4.0f, 4.0f, 4.0f), ofColor::blueViolet);
+	SceneObject* sphereBool2 = (SceneObject*)new Sphere(glm::vec3(9, 7.0f, -8), 4.0f);
 	BooleanShape* boolShape2 = new BooleanShape(
 		boxBool2, Shape::BoxShape,
 		sphereBool2, Shape::SphereShape,
@@ -61,11 +62,11 @@ std::vector<SceneObject*> generateScene() {
 
 	SceneObject* infRepObj1 = (SceneObject*)new InfiniteRep(box2, glm::vec3(10.0f, 13.0f, 10.0f), ofColor::blueViolet);
 	box2->setRotation(glm::vec3(0.0f, 0.0f, 30.0f));
-	
+
 	torus1->setRotation(glm::vec3(0, 0, -15.0f));
 	torus2->setRotation(glm::vec3(0, 0, 15.0f));
 	box1->setRotation(glm::vec3(45.0f, 45.0f, 0.0f));
-	Mesh* mesh = new Mesh("C:\\Users\\dmuna\\Documents\\cpp\\cga\\OFTest\\mySketch\\torus1.obj", glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3(3.0f, 3.0f, 3.0f));
+	Mesh* mesh = new Mesh("C:\\Users\\dmuna\\Documents\\cpp\\cga\\OFTest\\mySketch\\torus.obj", glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 	scene.push_back(floor);
 	//scene.push_back(sphere);
 	//scene.push_back(sphere1);
@@ -82,7 +83,6 @@ std::vector<SceneObject*> generateScene() {
 	scene.push_back(mesh);
 	return scene;
 }
-
 
 // Intersect Ray with Plane  (wrapper on glm::intersect*
 //
@@ -174,6 +174,25 @@ float handleLighting(glm::vec3 intersectionPoint, std::vector<SceneObject*> scen
 	return result;// glm::clamp(result, 0.0f, 1.0f);
 }
 
+float handleLighting(glm::vec3 intersectionPoint, SceneObject** scene, int size, glm::vec3 normalDirection, int objNo, glm::vec3 incidentRay) {
+	float result = 0.0f;
+	glm::vec3 intersectionPoint1;
+	for (int i = 0; i < lightSource.size(); i++) {
+		//float value = lightMultiplier(intersectionPoint, lightSource[i], normalDirection);
+		float value = lightMultiplier1(intersectionPoint, lightSource[i], normalDirection, incidentRay);
+		Ray ray1(intersectionPoint, glm::normalize(lightSource[i] - intersectionPoint));
+		for (int objNo1 = 0; objNo1 < size; objNo1++) {
+			if (objNo1 != objNo && scene[objNo1]->intersect(ray1, intersectionPoint1, glm::normalize(normalDirection), false)) {
+				value = 0.0f;
+				break;
+			}
+		}
+		result += value;
+	}
+
+	return result;// glm::clamp(result, 0.0f, 1.0f);
+}
+
 //using raymarching
 float handleLighting1(glm::vec3 intersectionPoint, std::vector<SceneObject*> scene, glm::vec3 normalDirection, int objNo, glm::vec3 incidentRay) {
 	float result = 0.0f;
@@ -237,6 +256,41 @@ void rayTracing(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositio
 	}
 }
 
+void rayTracing(SceneObject** scene, int size, Ray ray, glm::vec3 pixelPosition, glm::vec3** img, bool debug) {
+	glm::vec3 intersectionPoint;
+	glm::vec3 normalDirection;
+	bool setColor = false;
+	glm::vec3 minIntersectionPoint = glm::vec3(99999, 99999, 99999);
+	glm::vec3 minNormalDirection = glm::vec3(99999, 99999, 99999);
+	int minObjectNo = -1;
+	for (int objNo = 0; objNo < size; objNo++) {
+		if (scene[objNo]->intersect(ray, intersectionPoint, normalDirection, debug) && glm::l2Norm(camera, intersectionPoint) < 200.0f) {
+			if (glm::l2Norm(minIntersectionPoint, camera) > glm::l2Norm(camera, intersectionPoint)) {
+				minIntersectionPoint = intersectionPoint;
+				minNormalDirection = normalDirection;
+				//if (isDebug) myfile << (int)(w + width / 2.0f)<<", "<< height - (int)(h + height / 2.0f) << "\n";
+				//std::cout << (int)(w + width / 2.0f) << ", " << height - (int)(h + height / 2.0f) << std::endl;
+
+				minObjectNo = objNo;
+				setColor = true;
+			}
+		}
+	}
+
+	if (minObjectNo != -1) {
+		scene[minObjectNo]->intersect(ray, intersectionPoint, normalDirection, false);
+		float shadedColor = handleLighting(intersectionPoint, scene, size, normalDirection, minObjectNo, -ray.d);
+		//float shadedColor = handleLighting1(intersectionPoint, scene, scene[minObjectNo]->getNormal(intersectionPoint, false), minObjectNo, -ray.d);
+		ofColor c = scene[minObjectNo]->diffuseColor;
+		c.r *= shadedColor;
+		c.g *= shadedColor;
+		c.b *= shadedColor;
+		img[(int)pixelPosition.x][(int)pixelPosition.y].x = c.r;
+		img[(int)pixelPosition.x][(int)pixelPosition.y].y = c.g;
+		img[(int)pixelPosition.x][(int)pixelPosition.y].z = c.b;
+	}
+}
+
 bool march(std::vector<SceneObject*> scene, Ray ray, int* minObjectNo, glm::vec3* nextStep) {
 	*nextStep = ray.p + ray.d;
 	float closestObjectDistance = 999999;
@@ -275,11 +329,11 @@ void rayMarching(std::vector<SceneObject*> scene, Ray ray, glm::vec3 pixelPositi
 		img.setColor(pixelPosition.x, pixelPosition.y, c);
 	}
 }
-
+// __global__
 void renderRow(float h, int width, int height, std::vector<SceneObject*> scene, ofImage* img) {
 	for (float w = -width / 2.0f; w < width / 2.0f; w++) {
 		//std::cout << w << ":w ";
-		float u = w / height;
+		float u = w / width;
 		float v = h / height;
 		glm::vec3 pixelPos = glm::vec3(u * viewportHeight, v * viewportHeight, -cameraToScreenDist) + camera;
 		glm::vec3 rayDirection = pixelPos - camera;
@@ -289,6 +343,18 @@ void renderRow(float h, int width, int height, std::vector<SceneObject*> scene, 
 		//rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
 	}
 
+}
+
+//__global__ 
+void renderRow(float h, float w, int width, int height, SceneObject** scene, int size, glm::vec3** img) {
+	float u = w / height;
+	float v = h / height;
+	glm::vec3 pixelPos = glm::vec3(u * viewportHeight, v * viewportHeight, -cameraToScreenDist) + camera;
+	glm::vec3 rayDirection = pixelPos - camera;
+	Ray ray(camera, glm::normalize(rayDirection));
+	//if (isDebug) myfile << "[" << h << " " << w << "]ray start- " << camera<<" direction- "<<rayDirection << std::endl;// "\t" << rayDirection << std::endl;
+	rayTracing(scene, size, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
+	//rayMarching(scene, ray, glm::vec3((int)(w + width / 2.0f), height - (int)(h + height / 2.0f), 0), img, false);
 }
 
 void threadedFunction(/*int width, int height, std::vector<SceneObject*>* scene, ofImage* img*/) {
@@ -373,6 +439,7 @@ void drawScene() {
 	std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 	std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
 	if (isDebug) myfile.close();
+	std::cout << "total depth: " << ((Mesh*)scene[1])->totalDepth << ", total size: " << ((Mesh*)scene[1])->totalSize << "\n";
 	//ofSetColor(255);
 	img.update();
 	img.draw(0, 0);

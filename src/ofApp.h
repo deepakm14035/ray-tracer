@@ -139,8 +139,11 @@ public:
 	std::vector<std::vector<int>> v_normals_list;
 	std::vector<glm::vec3> new_vn;
 	Node root;
+	int depth = 0;
+	int totalDepth = 0;
+	int totalSize = 0;
 
-	Mesh(std::string filename, glm::vec3 p, glm::vec3 size, ofColor diffuse = ofColor::darkOliveGreen, float w = 20, float h = 20) {
+	Mesh(std::string filename, glm::vec3 p, glm::vec3 size, ofColor diffuse = ofColor::lightGray, float w = 20, float h = 20) {
 		diffuseColor = diffuse;
 		shape = MeshShape;
 		scale = size;
@@ -256,7 +259,7 @@ public:
 		level++;
 		temp->children.insert(temp->children.end(), children.begin(), children.end());
 		for (int i = 0; i < temp->children.size(); i++) {
-			if(temp->children[i].triangles.size()>20)
+			if(temp->children[i].triangles.size()>50)
 				generateOctree(&(temp->children[i]), level);
 		}
 
@@ -307,6 +310,7 @@ public:
 
 	std::vector<Node*>  parseTree(const Ray& ray, glm::vec3& point, glm::vec3& normal, Node* node) {
 		std::vector<Node*> intersectingBoxes;
+		depth++;
 		//std::cout << "\n[mesh.parseTree]"<<ray.d<<"\n";
 		for (int i = 0; i < node->children.size(); i++) {
 			//std::cout << "\n[mesh.parseTree] child: " << i << "\n";
@@ -331,16 +335,20 @@ public:
 		if (debug) {
 			std::cout << "\n[mesh.intersect]\n";
 		}
-		if (!intersectRayBox(root, ray)) {
-			return false;
-		}
-		list = parseTree(ray, point, normal, &root);
+		//if (!intersectRayBox(root, ray)) {
+		//	return false;
+		//}
+		depth = 0;
+		//list = parseTree(ray, point, normal, &root);
 		//if (list.size()==0) return false;
-		for (int b = 0; b < list.size(); b++) {
-			for (int i = 0; i < list[b]->triangles.size(); i++) {
-				//for (int i = 0; i < f.size(); i++) {
-				int triIndex = list[b]->triangles[i];
-				//int triIndex = i;
+		//std::cout << " [" << list.size() << ", "<<depth<<"] ";
+//		totalDepth += depth;
+	//	for (int b = 0; b < list.size(); b++) {
+	//		totalSize += list[b]->triangles.size();
+	//		for (int i = 0; i < list[b]->triangles.size(); i++) {
+			for (int i = 0; i < f.size(); i++) {
+			//	int triIndex = list[b]->triangles[i];
+				int triIndex = i;
 				glm::vec2 baryPos(0.0f, 0.0f);
 				float dist;
 				//std::cout << f[triIndex].vert_ind << std::endl;
@@ -353,9 +361,9 @@ public:
 					}
 				}
 
-			}
+//			}
 		}
-		if (closestTriangle >= 0) {
+		if (false && closestTriangle >= 0) {
 			/*std::vector<int> neighbors;
 			for (int i = 0; i < f.size(); i++) {
 				bool matchingEdgeX = (f[i].vert_ind.x == f[closestTriangle].vert_ind.x || f[i].vert_ind.x == f[closestTriangle].vert_ind.y || f[i].vert_ind.x == f[closestTriangle].vert_ind.z);
@@ -729,3 +737,7 @@ public:
 	int imageWidth = 600;
 	int imageHeight = 400;
 };
+
+
+void renderRow(float h, int width, int height, std::vector<SceneObject*> scene, ofImage* img);
+void renderRow(float h, float w, int width, int height, SceneObject** scene, int size, glm::vec3** img);
